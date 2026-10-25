@@ -16,7 +16,7 @@ export const route: Route = {
 async function handler() {
     const uuid = uuidv4();
     
-    // 把之前的 'bulletins' 换成 'articles'
+    // 请求 articles（论文）接口，拿到具体的单篇论文数据
     const response = await ofetch(`${baseUrl}/hky/open/resources/api/v1/articles`, {
         method: 'POST',
         headers: {
@@ -26,7 +26,7 @@ async function handler() {
         },
         body: {
             page: 1,
-            size: 20,
+            size: 50, // 把数量改大，一次多拿点
             order_field: 'date',
             order_direction: 'desc',
             user_id: md5(Date.now().toString()),
@@ -36,9 +36,10 @@ async function handler() {
         },
     });
 
+    // 将返回的数据转换为单篇的 RSS 条目
     const items = (response.content || []).map((item) => {
         return {
-            // 这里的 title 会直接显示在 ClassIsland 上
+            // 这里的 title 就是单篇论文的具体标题（如“金属基产氢治疗系统综述...”）
             title: item.title || '无标题',
             link: item.id ? `${baseUrl}/headlines/${item.id}` : baseUrl,
             description: item.abstracts || item.description || '',
