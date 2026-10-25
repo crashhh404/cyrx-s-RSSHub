@@ -16,7 +16,7 @@ async function handler() {
     const baseUrl = 'https://pubscholar.cn';
     const url = `${baseUrl}/headlines`;
 
-    const response = await ofetch(url);
+    const response = await ofetch(url, { responseType: 'text' });
     const $ = cheerio.load(response);
 
     const items = [];
