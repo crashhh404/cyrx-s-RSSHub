@@ -16,9 +16,8 @@ export const route: Route = {
 async function handler() {
     const uuid = uuidv4();
     
-    // 我们直接请求它的后台数据接口，而不是去解析网页
-    // 这个接口通常返回 JSON 数据，比解析 HTML 稳定一万倍
-    const response = await ofetch(`${baseUrl}/hky/open/resources/api/v1/bulletins`, {
+    // 把之前的 'bulletins' 换成 'articles'
+    const response = await ofetch(`${baseUrl}/hky/open/resources/api/v1/articles`, {
         method: 'POST',
         headers: {
             ...getSignedHeaders(),
@@ -37,9 +36,9 @@ async function handler() {
         },
     });
 
-    // 把接口返回的数据，转换成 RSS 格式
     const items = (response.content || []).map((item) => {
         return {
+            // 这里的 title 会直接显示在 ClassIsland 上
             title: item.title || '无标题',
             link: item.id ? `${baseUrl}/headlines/${item.id}` : baseUrl,
             description: item.abstracts || item.description || '',
