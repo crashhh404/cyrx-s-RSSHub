@@ -1,7 +1,8 @@
 import type { Route } from '@/types';
 import ofetch from '@/utils/ofetch';
+import md5 from '@/utils/md5';
+import { baseUrl, getSignedHeaders, uuidv4 } from './utils';
 import { parseDate } from '@/utils/parse-date';
-import * as cheerio from 'cheerio';
 
 export const route: Route = {
     path: '/headlines',
@@ -13,39 +14,43 @@ export const route: Route = {
 };
 
 async function handler() {
-    const baseUrl = 'https://pubscholar.cn';
-    const url = `${baseUrl}/headlines`;
-
-    const response = await ofetch(url, { responseType: 'text' });
-    const $ = cheerio.load(response);
-
-    const items = [];
+    const uuid = uuidv4();
     
-    // 遍历每一个卡片 (a标签)
-    $('.HeadlineItem').each((_, element) => {
-        const $element = $(element);
-        const link = $element.attr('href');
-        const fullLink = link.startsWith('http') ? link : `${baseUrl}${link}`;
-        const dateStr = $element.find('.HeadlineItem__date').text().trim();
-        const category = $element.find('.HeadlineItem__title').text().trim().replace(/\s+/g, ' '); // 提取分类
+    // 我们直接请求它的后台数据接口，而不是去解析网页
+    // 这个接口通常返回 JSON 数据，比解析 HTML 稳定一万倍
+    const response = await ofetch(`${baseUrl}/hky/open/resources/api/v1/bulletins`, {
+        method: 'POST',
+        headers: {
+            ...getSignedHeaders(),
+            Cookie: `XSRF-TOKEN=${uuid}`,
+            'X-XSRF-TOKEN': uuid,
+        },
+        body: {
+            page: 1,
+            size: 20,
+            order_field: 'date',
+            order_direction: 'desc',
+            user_id: md5(Date.now().toString()),
+            lang: 'zh',
+            strategy: null,
+            orderField: 'default',
+        },
+    });
 
-        // 遍历卡片里的多条新闻标题 (subtitle)
-        $element.find('.HeadlineItem__subtitle span').each((_, spanElement) => {
-            const title = $(spanElement).text().trim();
-            if (title) {
-                items.push({
-                    title: title,
-                    link: fullLink, // 因为HTML里没给独立链接，只能指向同一个聚合页
-                    description: `分类：${category} <br> 阅读全文请点击链接`,
-                    pubDate: dateStr ? parseDate(dateStr, 'YYYY/MM/DD') : undefined,
-                });
-            }
-        });
+    // 把接口返回的数据，转换成 RSS 格式
+    const items = (response.content || []).map((item) => {
+        return {
+            title: item.title || '无标题',
+            link: item.id ? `${baseUrl}/headlines/${item.id}` : baseUrl,
+            description: item.abstracts || item.description || '',
+            pubDate: item.date ? parseDate(String(item.date), 'YYYY-MM-DD') : undefined,
+            author: item.author ? item.author.join(', ') : '',
+        };
     });
 
     return {
         title: 'PubScholar 科技头条',
-        link: url,
+        link: `${baseUrl}/headlines`,
         item: items,
     };
 }
