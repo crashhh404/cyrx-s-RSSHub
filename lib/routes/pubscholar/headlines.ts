@@ -16,7 +16,6 @@ export const route: Route = {
 async function handler() {
     const uuid = uuidv4();
     
-    // 请求 articles（论文）接口，拿到具体的单篇论文数据
     const response = await ofetch(`${baseUrl}/hky/open/resources/api/v1/articles`, {
         method: 'POST',
         headers: {
@@ -26,7 +25,7 @@ async function handler() {
         },
         body: {
             page: 1,
-            size: 50, // 把数量改大，一次多拿点
+            size: 30, // 获取最新 30 条
             order_field: 'date',
             order_direction: 'desc',
             user_id: md5(Date.now().toString()),
@@ -36,12 +35,22 @@ async function handler() {
         },
     });
 
-    // 将返回的数据转换为单篇的 RSS 条目
     const items = (response.content || []).map((item) => {
+        // 关键点：尝试获取学科分类（通常是 keywords 的第一个，或者自带的 subject 字段）
+        let category = '学术前沿';
+        if (item.keywords && item.keywords.length > 0) {
+            category = item.keywords[0];
+        } else if (item.subject) {
+            category = item.subject;
+        }
+
+        // 拼接成类似于：【材料科学】金属基产氢治疗系统综述...
+        const finalTitle = `【${category}】${item.title || '无标题'}`;
+
         return {
-            // 这里的 title 就是单篇论文的具体标题（如“金属基产氢治疗系统综述...”）
-            title: item.title || '无标题',
+            title: finalTitle,
             link: item.id ? `${baseUrl}/headlines/${item.id}` : baseUrl,
+            // description 里可以放摘要，ClassIsland 如果支持滚动也能看到
             description: item.abstracts || item.description || '',
             pubDate: item.date ? parseDate(String(item.date), 'YYYY-MM-DD') : undefined,
             author: item.author ? item.author.join(', ') : '',
